@@ -1,0 +1,57 @@
+name: wal-g
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-debian:
+    name: Release Debian
+    strategy:
+      matrix:
+        # for supported arch and os, see see
+        # https://github.com/uraimo/run-on-arch-action#supported-platforms
+        arch: [aarch64]
+        os: [bullseye]
+        db: [pg]
+      fail-fast: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      USE_LIBSODIUM: 1
+      USE_LZO: 1
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: wal-g/wal-g
+          ref: ${{ github.ref }}
+
+      - uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.os }}
+          env: | # YAML, but pipe character is necessary
+            USE_LIBSODIUM: ${{ env.USE_LIBSODIUM }}
+            USE_LZO: ${{ env.USE_LZO }}
+
+          shell: /bin/bash
+          run: |
+            echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list.d/bullseye-backports.list
+            apt-get update
+            apt-get install -y build-essential curl git cmake golang-1.18 liblzo2-dev brotli libsodium-dev
+
+            export PATH="/usr/lib/go-1.18/bin:$PATH"
+
+            go get -v -t -d ./...
+            make deps
+            make pg_build
+
+      - run: mv main/${{ matrix.db }}/wal-g wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}
+      - run: sha256sum wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }} > wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}.sha256
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}
+            wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
