@@ -16,7 +16,7 @@ jobs:
         db: [pg]
       fail-fast: false
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       USE_LIBSODIUM: 1
       USE_LZO: 1
