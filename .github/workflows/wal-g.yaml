@@ -7,19 +7,10 @@ on:
 jobs:
   release-debian:
     name: Release Debian
-    strategy:
-      matrix:
-        # for supported arch and os, see see
-        # https://github.com/uraimo/run-on-arch-action#supported-platforms
-        arch: [aarch64]
-        os: [bullseye]
-        db: [pg]
-      fail-fast: false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      USE_LIBSODIUM: 1
-      USE_LZO: 1
+      OUTPUT_NAME: wal-g-pg-debian-11-aarch64
     steps:
       - uses: actions/checkout@v3
         with:
@@ -28,11 +19,11 @@ jobs:
 
       - uses: uraimo/run-on-arch-action@v2
         with:
-          arch: ${{ matrix.arch }}
-          distro: ${{ matrix.os }}
+          arch: aarch64
+          distro: bullseye
           env: | # YAML, but pipe character is necessary
-            USE_LIBSODIUM: ${{ env.USE_LIBSODIUM }}
-            USE_LZO: ${{ env.USE_LZO }}
+            USE_LIBSODIUM: 1
+            USE_LZO: 1
 
           shell: /bin/bash
           run: |
@@ -46,12 +37,11 @@ jobs:
             make deps
             make pg_build
 
-      - run: mv main/${{ matrix.db }}/wal-g wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}
-      - run: sha256sum wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }} > wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}.sha256
+      - run: mv main/pg/wal-g ${{ env.OUTPUT_NAME }}
+      - run: sha256sum ${{ env.OUTPUT_NAME }} > ${{ env.OUTPUT_NAME }}.sha256
       - uses: softprops/action-gh-release@v1
         with:
+          token: ${{ secrets.BOT_PAT }}
           files: |
-            wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}
-            wal-g-${{ matrix.db }}-${{ matrix.os }}-${{ matrix.arch }}.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ${{ env.OUTPUT_NAME }}
+            ${{ env.OUTPUT_NAME }}.sha256
